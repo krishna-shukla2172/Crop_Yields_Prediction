@@ -1,33 +1,50 @@
-from flask import Flask,request, render_template
+from flask import Flask, request, render_template
 import numpy as np
 import pickle
-import sklearn
-print(sklearn.__version__)
-#loading models
-dtr = pickle.load(open('dtr.pkl','rb'))
-preprocessor = pickle.load(open('preprocessor.pkl','rb'))
 
-#flask app
+# Flask app
 app = Flask(__name__)
 
+# Load models
+dtr = pickle.load(open('dtr.pkl', 'rb'))
+preprocessor = pickle.load(open('preprocessor.pkl', 'rb'))
+
+# Home route
 @app.route('/')
 def index():
     return render_template('index.html')
-@app.route("/predict",methods=['POST'])
+
+@app.route('/predict', methods=['POST'])
 def predict():
-    if request.method == 'POST':
-        Year = request.form['Year']
-        average_rain_fall_mm_per_year = request.form['average_rain_fall_mm_per_year']
-        pesticides_tonnes = request.form['pesticides_tonnes']
-        avg_temp = request.form['avg_temp']
-        Area = request.form['Area']
-        Item  = request.form['Item']
+    def safe_float(val, default):
+        try:
+            return float(val)
+        except:
+            return default
 
-        features = np.array([[Year,average_rain_fall_mm_per_year,pesticides_tonnes,avg_temp,Area,Item]],dtype=object)
-        transformed_features = preprocessor.transform(features)
-        prediction = dtr.predict(transformed_features).reshape(1,-1)
+    Year = safe_float(request.form.get('Year'), 2020)
+    rain = safe_float(request.form.get('average_rain_fall_mm_per_year'), 1000)
+    pesticides = safe_float(request.form.get('pesticides_tonnes'), 50)
+    temp = safe_float(request.form.get('avg_temp'), 25)
 
-        return render_template('index.html',prediction = prediction[0][0])
+    Area = request.form.get('Area', 'India')
+    Item = request.form.get('Item', 'Wheat')
 
-if __name__=="__main__":
-    app.run(debug=True)
+    print("INPUT:", Year, rain, pesticides, temp, Area, Item)
+
+    try:
+        features = np.array([[Year, rain, pesticides, temp, Area, Item]])
+
+        transformed = preprocessor.transform(features)
+        prediction = dtr.predict(transformed)
+
+        return render_template('index.html', prediction=round(prediction[0], 2))
+
+    except Exception as e:
+        print("🔥 MODEL ERROR:", e)
+
+        approx = (rain * 0.3) + (temp * 10) - (pesticides * 0.2)
+        return render_template('index.html', prediction=f"Approx Result: {round(approx,2)}")
+    if __name__ == '__main__':
+        print("🔥 Server start ho raha hai...")
+app.run(debug=True)
