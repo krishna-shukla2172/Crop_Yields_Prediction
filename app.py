@@ -47,4 +47,8 @@ def predict():
         return render_template('index.html', prediction=f"Approx Result: {round(approx,2)}")
     if __name__ == '__main__':
         print("🔥 Server start ho raha hai...")
-app.run(debug=True)
+import os
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
